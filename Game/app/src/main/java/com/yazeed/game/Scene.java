@@ -2,6 +2,7 @@ package com.yazeed.game;
 
 
 
+import java.nio.FloatBuffer;
 import java.util.ArrayList;
 
 
@@ -11,13 +12,17 @@ import java.util.ArrayList;
 public class Scene {
     int numberOfObjects;
     int numberOfModels3D;
+    int numberOfModels2D;
 
     ArrayList<Model3D> sceneModels;
+    ArrayList<Model2D> models2D;
 
     public Scene(){
         numberOfModels3D = 0;
+        numberOfModels2D = 0;
         numberOfObjects = 0;
         sceneModels = new ArrayList<Model3D>();
+        models2D = new ArrayList<Model2D>();
     }
 
     public void addModel3D(Model3D model){
@@ -25,6 +30,10 @@ public class Scene {
         numberOfModels3D++;
     }
 
+    public void addModel2D(Model2D model){
+        models2D.add(model);
+        numberOfModels2D++;
+    }
     public void deleteModel3D(Model3D modelToDelete){
         /*for(int i=0;i<numberOfModels3D;i++){
             if(sceneModels.get(i).modelName.equals(modelNameDelete)){
@@ -34,6 +43,8 @@ public class Scene {
         }*/
         sceneModels.remove(modelToDelete);
     }
+
+
 
 
 }

@@ -1,97 +1,66 @@
 package com.yazeed.game;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.opengl.GLES20;
+import android.opengl.GLUtils;
+
 import java.io.IOException;
-import java.io.BufferedReader;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
-import java.util.ArrayList;
-import java.util.Scanner;
-import java.util.Vector;
 
 /**
- * Created by Yazeed on 1/3/2015.
+ * Created by Yazeed on 1/9/2015.
  */
-public class Model3D {
+public class Model2D {
+    int texID;
+    String name;
     Vector3[] vertices;
     Vector3[] boundingBox;
 
     int numberOfVertices, numberOfTriangles;
     int[] triangles;
+    float[] uvs;
     FloatBuffer vertexBuffer, textureBuffer;
     IntBuffer indexBuffer;
     String modelName;
     boolean textured;
+    Bitmap image;
 
-    public Model3D(String name, InputStream inputStream) throws IOException{
-        modelName = name;
+    public Model2D(String name, InputStream imageStream){
+        this.name = name;
+        numberOfTriangles = 2*3;
+        numberOfVertices = 4*3;
+        triangles = new int[]{0, 3, 1, 0, 2, 3};
+        uvs = new float[]{1,1,0,1,1,0,0,0};
+        vertices = new Vector3[4];
         vertexBuffer = null;
         indexBuffer = null;
         boundingBox = new Vector3[2];
-        readFromFile(inputStream);
+        textureBuffer = null;
+        setInitialVertices();
         computeBoundingBox();
-        textured = false;
+        try{
+            image = BitmapFactory.decodeStream(imageStream);
+        } finally {
+            try{
+                imageStream.close();
+            }catch (IOException ioe){
+                ioe.printStackTrace();
+            }
+        }
     }
 
-    public void readFromFile(InputStream is) throws IOException{
-
-        BufferedReader fileBuffered = new BufferedReader(new InputStreamReader(is));
-
-        ArrayList<Float> verts = new ArrayList<Float>();
-        ArrayList<Float> norms = new ArrayList<Float>();
-        ArrayList<Float> cols = new ArrayList<Float>();
-        ArrayList<Integer> tris = new ArrayList<Integer>();
-
-        Scanner fileScanner = new Scanner(fileBuffered);
 
 
-        while (fileScanner.hasNextLine() ) {
-            String line = fileScanner.nextLine();
-            Scanner lineScanner = new Scanner(line);
-            lineScanner.next();
-            if(line.charAt(0) == 'v' && line.charAt(1) == ' ') {
-                verts.add(lineScanner.nextFloat());
-                verts.add(lineScanner.nextFloat());
-                verts.add(lineScanner.nextFloat());
-            }
-            else if(line.charAt(1) == 'n') {
-                norms.add(lineScanner.nextFloat());
-                norms.add(lineScanner.nextFloat());
-                norms.add(lineScanner.nextFloat());
-            }
-            else if(line.charAt(0) == 'f'){
-                int first = lineScanner.nextInt();
-                int second = lineScanner.nextInt();
-                int third = lineScanner.nextInt();
-
-                tris.add(first-1);
-                tris.add(second-1);
-                tris.add(third-1);
-            }
-
-        }
-        triangles = new int[tris.size()];
-        vertices = new Vector3[verts.size()/3];
-
-        numberOfVertices = verts.size();
-
-        for(int j = 0; j<verts.size(); j=j+3){
-            vertices[j/3] = new Vector3(verts.get(j), verts.get(j+1), verts.get(j+2));
-        }
-
-        int i=0;
-        for(Integer in : tris){
-            triangles[i++] = in;
-        }
-        numberOfTriangles = i;
-
-        verts = null;
-        norms = null;
-        cols = null;
-        tris = null;
+    public void setInitialVertices(){
+        vertices[1] = new Vector3(-0.5f, -0.5f, 0);
+        vertices[2] = new Vector3(0.5f, 0.5f, 0);
+        vertices[3] = new Vector3(-0.5f, 0.5f, 0);
+        vertices[0] = new Vector3(0.5f, -0.5f, 0);
     }
 
     public FloatBuffer getVertexBuffer(){
@@ -109,7 +78,22 @@ public class Model3D {
     }
 
     public FloatBuffer getTextureBuffer(){
-        return null;
+        if(textureBuffer == null)
+            createTexturexBuffer();
+
+        return textureBuffer;
+    }
+
+    public void createIndexBuffer(){
+        indexBuffer = ByteBuffer.allocateDirect(numberOfTriangles * 4)
+                .order(ByteOrder.nativeOrder()).asIntBuffer();
+        indexBuffer.put(triangles).position(0);
+    }
+
+    public void createTexturexBuffer(){
+        textureBuffer = ByteBuffer.allocateDirect(4 * 2 * 4)
+                .order(ByteOrder.nativeOrder()).asFloatBuffer();
+        textureBuffer.put(uvs).position(0);
     }
 
     public void createVertexBuffer(){
@@ -117,12 +101,6 @@ public class Model3D {
                 .order(ByteOrder.nativeOrder()).asFloatBuffer();
         for(int i=0;i<numberOfVertices/3;i++)
             vertexBuffer.put(vertices[i].asFloatArray());
-    }
-
-    public void createIndexBuffer(){
-        indexBuffer = ByteBuffer.allocateDirect(numberOfTriangles * 4)
-                .order(ByteOrder.nativeOrder()).asIntBuffer();
-        indexBuffer.put(triangles).position(0);
     }
 
     public void updateVertexBuffer(){
@@ -151,8 +129,8 @@ public class Model3D {
     public void translate(Vector3 translation){
         for(int i=0;i<numberOfVertices/3;i++)
             vertices[i].add(translation);
-       updateVertexBuffer();
-       computeBoundingBox();
+        updateVertexBuffer();
+        computeBoundingBox();
     }
 
     public void rotate(Vector3 rotVector, float angle){
@@ -225,9 +203,5 @@ public class Model3D {
     @Override
     public boolean equals(Object o) {
         return modelName.equals(((Model3D)o).modelName);
-    }
-
-    public boolean isTextured(){
-        return textured;
     }
 }
