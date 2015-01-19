@@ -10,6 +10,9 @@ public class Vector3 {
 
     public Vector3(){
         xyz = new float[3];
+        xyz[0] = 0;
+        xyz[1] = 0;
+        xyz[2] = 0;
     }
 
     public Vector3(float x, float y, float z){
@@ -118,7 +121,7 @@ public class Vector3 {
     }
 
     public static Vector3 subtractVectors(Vector3 left, Vector3 right){
-        Vector3 result = left;
+        Vector3 result = new Vector3(left.get(0), left.get(1), left.get(2));
         result.subtract(right);
         return result;
     }

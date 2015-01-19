@@ -71,6 +71,8 @@ public class FirstRenderer implements GLSurfaceView.Renderer
 
     private int mNormalHandle;
 
+    private int mLightPosHandle;
+
     private int mTexHandle;
 
     private int mTexture;
@@ -116,6 +118,7 @@ public class FirstRenderer implements GLSurfaceView.Renderer
         m.scaleToNewDiagonal(1.5f);
         scene.addModel3D(m);
         scene.addModel2D(orange);
+        scene.addLight(new Vector3(1,1,1), 1);
     }
 
     @Override
@@ -145,7 +148,7 @@ public class FirstRenderer implements GLSurfaceView.Renderer
         Matrix.setLookAtM(mViewMatrix, 0, eyeX, eyeY, eyeZ, lookX, lookY, lookZ, upX, upY, upZ);
 
         createRegularShader();
-        createTextureShader();
+        //createTextureShader();
 
         // Tell OpenGL to use this program when rendering.
 
@@ -202,12 +205,12 @@ public class FirstRenderer implements GLSurfaceView.Renderer
     {
         // Pass in the position information
        // aTriangleBuffer.position(mPositionOffset);
-        /*for (Model3D model : scene.sceneModels) {
+        for (Model3D model : scene.sceneModels) {
             //model.translate(new Vector3(0.01f, 0, -0.01f));
             GLES20.glUseProgram(regularShaderProgram);
-            model.rotate(new Vector3(0,1,0), 1);
+            model.rotate(new Vector3(0,0,1), 0.1f);
             FloatBuffer aTriangleBuffer = model.getVertexBuffer();
-
+            aTriangleBuffer.position(0);
             GLES20.glVertexAttribPointer(mPositionHandle, 3, GLES20.GL_FLOAT, false,
                     0, aTriangleBuffer);
 
@@ -220,6 +223,14 @@ public class FirstRenderer implements GLSurfaceView.Renderer
 
             GLES20.glEnableVertexAttribArray(mColorHandle);
 
+            //pass in normal
+            FloatBuffer normalBuffer = model.getNormalBuffer();
+            normalBuffer.position(0);
+            GLES20.glVertexAttribPointer(mNormalHandle, 3, GLES20.GL_FLOAT, false,
+                    0, normalBuffer);
+
+            GLES20.glEnableVertexAttribArray(mNormalHandle);
+
             // This multiplies the view matrix by the model matrix, and stores the result in the MVP matrix
             // (which currently contains model * view).
             Matrix.multiplyMM(mMVPMatrix, 0, mViewMatrix, 0, mModelMatrix, 0);
@@ -229,11 +240,16 @@ public class FirstRenderer implements GLSurfaceView.Renderer
             Matrix.multiplyMM(mMVPMatrix, 0, mProjectionMatrix, 0, mMVPMatrix, 0);
 
             GLES20.glUniformMatrix4fv(mMVPMatrixHandle, 1, false, mMVPMatrix, 0);
+            GLES20.glUniform3f(mLightPosHandle, 1.0f,1.0f,1.0f);
 
-            //GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 29);
             GLES20.glDrawElements(GLES20.GL_TRIANGLES, m.numberOfTriangles, GLES20.GL_UNSIGNED_INT, model.getIndexBuffer());
-        }*/
-        for(Model2D model : scene.models2D){
+            GLES20.glDisableVertexAttribArray(mPositionHandle);
+            GLES20.glDisableVertexAttribArray(mColorHandle);
+            GLES20.glDisableVertexAttribArray(mNormalHandle);
+
+            //model.print();
+        }
+        /*for(Model2D model : scene.models2D){
             GLES20.glUseProgram(textureShaderProgram);
             load(model );
             GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
@@ -269,37 +285,47 @@ public class FirstRenderer implements GLSurfaceView.Renderer
 
             //GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 29);
             GLES20.glDrawElements(GLES20.GL_TRIANGLES, 6, GLES20.GL_UNSIGNED_INT, model.getIndexBuffer());
-        }
+        }*/
     }
     
     public void createRegularShader(){
         final String vertexShader =
                 "uniform mat4 u_MVPMatrix;      \n"		// A constant representing the combined model/view/projection matrix.
+                        + "uniform vec3 lightPos;       \n"       // added light position
 
-                        + "attribute vec4 a_Position;     \n"		// Per-vertex position information we will pass in.
-                        + "attribute vec4 a_Color;        \n"		// Per-vertex color information we will pass in.
-                        + "attribute vec4 a_Normal;       \n"       // added normals
+                        + "attribute vec3 a_Position;     \n"		// Per-vertex position information we will pass in.
+                        + "attribute vec3 a_Color;        \n"		// Per-vertex color information we will pass in.
+                        + "attribute vec3 a_Normal;       \n"       // added normals
 
-                        + "varying vec4 v_Color;          \n"		// This will be passed into the fragment shader.
-                        + "varying vec4 v_Normal;         \n"       // added normals
+
+
+                        + "varying vec3 v_Color;          \n"		// This will be passed into the fragment shader.
+                        + "varying vec3 v_Normal;         \n"       // added normals
 
                         + "void main()                    \n"		// The entry point for our vertex shader.
                         + "{                              \n"
-                        + "   v_Color = a_Color;          \n"		// Pass the color through to the fragment shader.
-                        + "   v_Normal = a_Normal;          \n"
+                        + "   vec3 lightDir = a_Position - lightPos;         \n"
+                        + "   lightDir = normalize(lightDir);                              \n"
+                        + "   vec3 norm = a_Normal;                              \n"
+                        + "   float intensity = max(dot(norm, lightDir), 0.0);                             \n"
+                        + "   v_Color = intensity * vec3(1,0,0) + 0.2*vec3(1,0,0);       \n"		// Pass the color through to the fragment shader.
+                        + "   v_Normal = a_Normal;   \n"
+                        + "   vec4 pos = vec4(a_Position.rgb,1);   \n"
                         // It will be interpolated across the triangle.
                         + "   gl_Position = u_MVPMatrix   \n" 	// gl_Position is a special variable used to store the final position.
-                        + "               * a_Position;   \n"     // Multiply the vertex by the matrix to get the final point in
+                        + "               * pos;   \n"     // Multiply the vertex by the matrix to get the final point in
                         + "}                              \n";    // normalized screen coordinates.
 
         final String fragmentShader =
                 "precision mediump float;       \n"		// Set the default precision to medium. We don't need as high of a
                         // precision in the fragment shader.
-                        + "varying vec4 v_Color;          \n"		// This is the color from the vertex shader interpolated across the
+                        + "varying vec3 v_Color;          \n"		// This is the color from the vertex shader interpolated across the
                         // triangle per fragment.
+                        + "varying vec3 v_Normal;          \n"		//
+
                         + "void main()                    \n"		// The entry point for our fragment shader.
                         + "{                              \n"
-                        + "   gl_FragColor = v_Color;     \n"		// Pass the color directly through the pipeline.
+                        + "   gl_FragColor = vec4(v_Color, 1);     \n"		// Pass the color directly through the pipeline.
                         + "}                              \n";
 
 
@@ -403,6 +429,7 @@ public class FirstRenderer implements GLSurfaceView.Renderer
         mColorHandle = GLES20.glGetAttribLocation(regularShaderProgram, "a_Color");
         mNormalHandle = GLES20.glGetAttribLocation(regularShaderProgram, "a_Normal");
         mTexHandle = GLES20.glGetAttribLocation(regularShaderProgram, "a_TexCoord");
+        mLightPosHandle = GLES20.glGetUniformLocation(regularShaderProgram, "lightPos");
     }
     
     public void createTextureShader(){

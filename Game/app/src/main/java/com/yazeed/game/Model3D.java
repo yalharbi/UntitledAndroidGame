@@ -18,10 +18,11 @@ import java.util.Vector;
 public class Model3D {
     Vector3[] vertices;
     Vector3[] boundingBox;
+    Vector3[] normals;
 
     int numberOfVertices, numberOfTriangles;
     int[] triangles;
-    FloatBuffer vertexBuffer, textureBuffer;
+    FloatBuffer vertexBuffer, textureBuffer, normalBuffer;
     IntBuffer indexBuffer;
     String modelName;
     boolean textured;
@@ -30,6 +31,7 @@ public class Model3D {
         modelName = name;
         vertexBuffer = null;
         indexBuffer = null;
+        normalBuffer = null;
         boundingBox = new Vector3[2];
         readFromFile(inputStream);
         computeBoundingBox();
@@ -82,12 +84,15 @@ public class Model3D {
             vertices[j/3] = new Vector3(verts.get(j), verts.get(j+1), verts.get(j+2));
         }
 
+
         int i=0;
         for(Integer in : tris){
             triangles[i++] = in;
         }
         numberOfTriangles = i;
 
+        normals = new Vector3[verts.size()/3];
+        getNormals();
         verts = null;
         norms = null;
         cols = null;
@@ -112,6 +117,13 @@ public class Model3D {
         return null;
     }
 
+    public FloatBuffer getNormalBuffer(){
+        if(normalBuffer==null)
+            createNormalBuffer();
+
+        return normalBuffer;
+    }
+
     public void createVertexBuffer(){
         vertexBuffer = ByteBuffer.allocateDirect(numberOfVertices * 4)
                 .order(ByteOrder.nativeOrder()).asFloatBuffer();
@@ -123,6 +135,38 @@ public class Model3D {
         indexBuffer = ByteBuffer.allocateDirect(numberOfTriangles * 4)
                 .order(ByteOrder.nativeOrder()).asIntBuffer();
         indexBuffer.put(triangles).position(0);
+    }
+
+    public void createNormalBuffer(){
+        normalBuffer = ByteBuffer.allocateDirect(numberOfVertices * 4)
+                .order(ByteOrder.nativeOrder()).asFloatBuffer();
+        for(int i=0;i<numberOfVertices/3;i++)
+           normalBuffer.put(normals[i].asFloatArray());
+    }
+
+    public Vector3[] getNormals(){
+        for(int i=0;i<numberOfVertices/3; i++)
+            normals[i] = new Vector3();
+
+
+        for(int i=0;i<numberOfTriangles;i=i+3){
+            int vertexIndex = triangles[i];
+            int next = triangles[i+1];
+            int previous = triangles[i+2];
+            Vector3 first = Vector3.subtractVectors(vertices[next], vertices[vertexIndex]);
+            Vector3 second = Vector3.subtractVectors(vertices[previous], vertices[vertexIndex]);
+
+            Vector3 normal = Vector3.crossVectors(first, second);
+            normal.normalize();
+            normals[vertexIndex].add(normal);
+            normals[next].add(normal);
+            normals[previous].add(normal);
+        }
+
+        for(int i=0; i<numberOfVertices/3;i++)
+            normals[i].normalize();
+
+        return normals;
     }
 
     public void updateVertexBuffer(){
@@ -139,8 +183,25 @@ public class Model3D {
             vertexBuffer.put(vectorToFloatArray).position(0);
             vectorToFloatArray = null;
         }
+        updateNormalBuffer();
     }
 
+    public void updateNormalBuffer(){
+        if(normalBuffer==null)
+            createNormalBuffer();
+        else {
+            float[] vectorToFloatArray = new float[numberOfVertices];
+            normals = getNormals();
+            for (int i = 0; i < numberOfVertices / 3; i++) {
+                vectorToFloatArray[i*3] = normals[i].get(0);
+                vectorToFloatArray[i*3+1] = normals[i].get(1);
+                vectorToFloatArray[i*3+2] = normals[i].get(2);
+            }
+            normalBuffer.clear();
+            normalBuffer.put(vectorToFloatArray).position(0);
+            vectorToFloatArray = null;
+        }
+    }
     public void scale(float factor){
         for(int i=0;i<numberOfVertices/3;i++)
             vertices[i].multiplyByScalar(factor);
@@ -167,10 +228,8 @@ public class Model3D {
     }
 
     public void print(){
-        for(int i = 0; i<numberOfVertices; i=i+3)
-            System.out.println("Vertex: " + vertices[i] + " " + vertices[i+1] + vertices[i+2]);
-        for(int i = 0; i<numberOfTriangles; i=i+3)
-            System.out.println("Vertex: " + triangles[i] + " " + triangles[i+1] + triangles[i+2]);
+        for(int i = 0; i<numberOfVertices; i=i++)
+            System.out.println("Vertex: " + vertexBuffer.get(i*3) + " " + vertexBuffer.get(i*3+1) + " " + vertexBuffer.get(i*3+2));
     }
 
     public void computeBoundingBox(){
